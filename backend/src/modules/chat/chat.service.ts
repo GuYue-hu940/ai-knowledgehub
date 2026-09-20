@@ -9,6 +9,7 @@ import { CreateConversationDto } from './dto/create-conversation.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { Conversation } from './entities/conversation.entity';
 import { Message } from './entities/message.entity';
+import { LlmService } from '../llm/llm.service';
 
 @Injectable()
 export class ChatService {
@@ -17,6 +18,7 @@ export class ChatService {
     private readonly conversationRepo: Repository<Conversation>,
     @InjectRepository(Message)
     private readonly messageRepo: Repository<Message>,
+    private readonly llmService: LlmService,
   ) {}
 
   createConversation(userId: string, dto: CreateConversationDto) {
@@ -73,12 +75,27 @@ export class ChatService {
       }),
     );
 
-    //占位还没接LLM，先写一条固定助手回复
+    const history = await this.messageRepo.find({
+      where: { conversationId },
+      order: { createdAt: 'ASC' },
+    });
+
+    const answer = await this.llmService.chat([
+      {
+        role: 'system',
+        content: '你是 AI KnowledgeHub 企业助手，回答简洁准确。',
+      },
+      ...history.map((m) => ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content,
+      })),
+    ]);
+
     const assistantMessage = await this.messageRepo.save(
       this.messageRepo.create({
         conversationId,
         role: 'assistant',
-        content: `(占位回复) 已收到${dto.content}`,
+        content: answer,
       }),
     );
 
