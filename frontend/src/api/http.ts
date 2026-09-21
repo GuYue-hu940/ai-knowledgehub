@@ -2,7 +2,7 @@ import axios from "axios";
 
 export const http = axios.create({
   baseURL: "/api",
-  timeout: 10000,
+  timeout: 120000,
 });
 
 //请求发出前：如果有token，自动加到Header

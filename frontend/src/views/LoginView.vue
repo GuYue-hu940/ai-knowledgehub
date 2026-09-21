@@ -17,7 +17,7 @@ async function onLogin() {
     try {
         await auth.login(email.value, password.value)
         //登陆成功：跳转首页
-        await router.push('/')
+        await router.push('/chat')
     } catch (e: any) {
         message.value = e?.response?.data?.message || '登录失败'
     } finally {

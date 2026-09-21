@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useAuthStore } from "../stores/auth";
 import LoginView from "../views/LoginView.vue";
-import HomeView from "../views/HomeView.vue";
+import ChatView from "../views/ChatView.vue";
 
 const router = createRouter({
   history: createWebHistory(),
@@ -10,31 +10,25 @@ const router = createRouter({
       path: "/login",
       name: "login",
       component: LoginView,
-      meta: { guestOnly: true }, //仅未登录可访问
+      meta: { guestOnly: true },
     },
     {
       path: "/",
-      name: "home",
-      component: HomeView,
-      meta: { requiresAuth: true }, //必须登录
+      redirect: "/chat",
+    },
+    {
+      path: "/chat",
+      name: "chat",
+      component: ChatView,
+      meta: { requiresAuth: true },
     },
   ],
 });
 
 router.beforeEach((to) => {
   const auth = useAuthStore();
-
-  //登录才能进，但没token去登录页
-  if (to.meta.requiresAuth && !auth.token) {
-    return "/login";
-  }
-
-  //已登录还去登录页 返回首页
-  if (to.meta.guestOnly && auth.token) {
-    return "/";
-  }
-
-  //不return 或return true放行
+  if (to.meta.requiresAuth && !auth.token) return "/login";
+  if (to.meta.guestOnly && auth.token) return "/chat";
 });
 
 export default router;
