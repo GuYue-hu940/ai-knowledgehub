@@ -114,4 +114,62 @@ export class ChatService {
       assistantMessage,
     };
   }
+
+  async createMessageStream(
+    userId: string,
+    conversationId: string,
+    dto: CreateMessageDto,
+    onToken: (delta: string) => void,
+  ) {
+    const conversation = await this.getOwnedConversation(
+      userId,
+      conversationId,
+    );
+
+    const userMessage = await this.messageRepo.save(
+      this.messageRepo.create({
+        conversationId,
+        role: 'user',
+        content: dto.content,
+      }),
+    );
+
+    const history = await this.messageRepo.find({
+      where: { conversationId },
+      order: { createdAt: 'ASC' },
+    });
+
+    let fullAnswer = '';
+    for await (const delta of this.llmService.chatStream([
+      {
+        role: 'system',
+        content: '你是AI KnowledgeHub 企业助手，回答简洁准确有逻辑',
+      },
+      ...history.map((m) => ({
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content,
+      })),
+    ])) {
+      fullAnswer += delta;
+      onToken(delta);
+    }
+
+    const assistantMessage = await this.messageRepo.save(
+      this.messageRepo.create({
+        conversationId,
+        role: 'assistant',
+        content: fullAnswer,
+      }),
+    );
+
+    conversation.updateAt = new Date();
+    await this.conversationRepo.save(conversation);
+
+    if (conversation.title === '新对话') {
+      conversation.title = dto.content.slice(0, 20);
+      await this.conversationRepo.save(conversation);
+    }
+
+    return { userMessage, assistantMessage };
+  }
 }

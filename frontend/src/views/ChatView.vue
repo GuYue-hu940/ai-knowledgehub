@@ -3,6 +3,7 @@ import { nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import {
+    sendMessageStream,
     createConversation,
     listConversations,
     listMessages,
@@ -82,28 +83,48 @@ async function onSend() {
     errorText.value = ''
     input.value = ''
 
-    // 先把用户消息显示出来（乐观更新）
+    const userTempId = `temp-user-${Date.now()}`
     messages.value.push({
-        id: `temp-${Date.now()}`,
+        id: userTempId,
         conversationId: currentId.value!,
         role: 'user',
-        content,
+        content, // 刚才输入的内容
         createdAt: new Date().toISOString(),
+    })
+
+    const assistantTempId = `temp-ai-${Date.now()}`
+    messages.value.push({
+        id: assistantTempId,
+        conversationId: currentId.value!,
+        role: 'assistant',
+        content: '',
+        createdAt: new Date().toISOString()
     })
     await scrollToBottom()
 
     try {
-        const { data } = await sendMessage(currentId.value!, content)
-        // 用服务端返回替换临时消息，并追加助手回复
-        messages.value = messages.value.filter((m) => !String(m.id).startsWith('temp-'))
-        messages.value.push(data.userMessage, data.assistantMessage)
-
-        // 刷新左侧标题（可能从「新对话」变成截断后的内容）
-        await loadConversations()
-        await scrollToBottom()
+        await sendMessageStream(currentId.value!, content, {
+            onToken: async (delta) => {
+                const target = messages.value.find((m) => m.id === assistantTempId)
+                if (target) {
+                    target.content += delta
+                    await scrollToBottom()
+                }
+            },
+            onDone: async ({ userMessage, assistantMessage }) => {
+                messages.value = messages.value.filter(
+                    (m) => !String(m.id).startsWith('temp-')
+                )
+                messages.value.push(userMessage, assistantMessage)
+                await loadConversations()
+                await scrollToBottom()
+            },
+            onError: (message) => {
+                errorText.value = message
+            }
+        })
     } catch (e: any) {
-        errorText.value =
-            e?.response?.data?.message || e?.message || '发送失败（可能是超时或模型错误）'
+        errorText.value = e?.message || '发送失败'
     } finally {
         sending.value = false
     }

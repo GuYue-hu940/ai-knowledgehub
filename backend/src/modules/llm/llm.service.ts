@@ -33,4 +33,19 @@ export class LlmService {
     }
     return content;
   }
+
+  async *chatStream(messages: ChatMessage[]): AsyncGenerator<string> {
+    const stream = await this.client.chat.completions.create({
+      model: this.model,
+      messages,
+      temperature: 0.7,
+      stream: true,
+    });
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta?.content;
+      if (delta) {
+        yield delta;
+      }
+    }
+  }
 }
