@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Document } from './entities/document.entity';
 import { KnowledgeBase } from './entities/knowledge-base.entity';
 import { KnowledgeController } from './knowledge.controller';
 import { KnowledgeService } from './knowledge.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([KnowledgeBase])],
+  imports: [TypeOrmModule.forFeature([KnowledgeBase, Document])],
   controllers: [KnowledgeController],
   providers: [KnowledgeService],
   exports: [KnowledgeService],
